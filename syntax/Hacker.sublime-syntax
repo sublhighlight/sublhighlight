@@ -1,0 +1,144 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/syntax.html
+name: Hacker
+file_extensions: []
+scope: source.hacker
+contexts:
+  main:
+    - match: '(?<=^|\s)#!/.*?(?=$)'
+      scope: comment.line.shebang.hacker
+    - match: '(?=(?:^|\s)(?:#|\/\/))'
+      scope: meta.comment.line.hacker
+      push:
+        - include: always
+        - match: '$'
+          pop: 1
+    - match: '\/\*'
+      push:
+        - include: always
+        - match: '\*\/'
+          pop: 1
+    - match: '"""'
+      push:
+        - include: always
+        - match: '"""'
+          pop: 1
+    - match: "'''"
+      push:
+        - include: always
+        - match: "'''"
+          pop: 1
+    - match: '"'
+      scope: punctuation.definition.string.begin.hacker
+      push: double_quoted_string
+    - match: "'"
+      scope: punctuation.definition.string.begin.hacker
+      push: single_quoted_string
+    - match: '\('
+      push: brackets
+    - match: '\['
+      push: square_brackets
+    - match: '\{'
+      push: curly_brackets
+    - match: '(\)|\]|\})'
+      scope: invalid.illegal.stray-bracket-end
+    - include: consts
+      scope: constant.numeric.hacker
+    - match: '(?<=^|\s)(if|else|for|while|switch|try|except|do|done|fi|else|elif|case|esac|break|continue|class|import|with|in|as|from|is|not)(?=\s|\(|\{|:)'
+      scope: keyword.control.hacker
+    - match: '(?<=\b)(this(?=\.|->)|self(?=\.|->))(?=\b)'
+      scope: variable.language.hacker
+    - include: operators
+    - match: '(?<=\b)\w+(?=\s*\()'
+      scope: variable.function.hacker
+    - match: '(?<=\b)(GET|POST|PUT|PATCH|DELETE|OPTIONS|TRACE)(?=\s)'
+      scope: keyword.other.hacker
+    - include: always
+
+  consts:
+    - include: numeric-consts
+    - match: '(?<=\b)[Tt]rue(?=\b)'
+      scope: constant.language.boolean.true.hacker
+    - match: '(?<=\b)[Ff]alse(?=\b)'
+      scope: constant.language.boolean.false.hacker
+    - match: '(?<=\b)([Nn]ull|[Nn]one|[Nn]h?il)(?=\b)'
+      scope: constant.language.null.hacker
+
+  numeric-consts:
+    - match: '(?<![\w\d])[-]?[0-9]+[.]?[0-9]*(?=\b)'
+      scope: constant.numeric.hacker
+    - match: '(?<![\w\d])[-]?([0-9a-fA-F]{2})+(?=\b)'
+
+  operators:
+    - match: '(?<=.)(==?)(?=\b|\s)'
+      scope: keyword.operator.assignment.hacker
+
+  always:
+    # urls:
+    - match: '(?=\b[a-zA-Z0-9]+:\/\/)'
+      push: url
+    # emails:
+    - match: '(?<=\b)[\w\d.+_\-]+(@)[\w\d.+_\-]+(?=\b)'
+      scope: markup.underline.email.hacker
+    # jwt:
+    - match: '(ey[a-zA-Z0-9]+)\.(ey[a-zA-Z0-9]+)\.([a-zA-Z0-9_-]+)'
+      scope: constant.other.jwt.hacker
+      captures:
+        1: constant.other.jwt.header.hacker variable.parameter.url.hacker
+        2: constant.other.jwt.body.hacker variable.parameter.url.hacker
+        3: constant.other.jwt.signature.hacker variable.parameter.url.hacker
+
+  url:
+    - meta_content_scope: markup.underline.link.hacker
+    - match: '[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?]'
+      pop: 1
+    - match: '%[0-9a-fA-F]{2}'
+      scope: constant.character.escape.hacker escape.url.char.hacker
+    - match: '[A-Za-z0-9-_\[\]]+(?==)'
+      scope: variable.parameter.url.hacker
+    - match: '[:\/?&@\[\]]'
+      scope: keyword.operator.url.hacker
+    - include: consts
+    - include: operators
+
+  string-escapes:
+    - match: '\\x[0-9a-f]{2}'
+      scope: constant.character.escape.hacker
+    - match: '\\.'
+      scope: constant.character.escape.hacker
+
+  double_quoted_string:
+    - meta_scope: string.quoted.double.hacker
+    - include: string-escapes
+    - match: '"'
+      scope: punctuation.definition.string.end.hacker
+      pop: true
+    - include: always
+
+  single_quoted_string:
+    - meta_scope: string.quoted.single.hacker
+    - include: string-escapes
+    - match: "'"
+      scope: punctuation.definition.string.end.hacker
+      pop: true
+    - include: always
+
+  brackets:
+    - match: '\)'
+      pop: true
+    - include: main
+
+  square_brackets:
+    - match: '\]'
+      pop: true
+    - include: main
+    - match: '(?<=\b)(?![0-9])\w+(?=\b)'
+      scope: entity.name.tag.yaml.hacker
+
+  curly_brackets:
+    - match: '\}'
+      pop: true
+    - include: main
+    - match: '(?<=\b)(?![0-9])\w+(?=\b)'
+      scope: entity.name.tag.yaml.hacker
