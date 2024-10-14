@@ -46,7 +46,10 @@ def __splittags(expr):
 					subxp[i][j] = subxp[i][j].split(".")
 	else:
 		for i in range(len(expr)):
-			expr[i] = expr[i].split(".")
+			if isinstance(expr[i], tuple):
+				__splittags(expr[i])
+			else:
+				expr[i] = expr[i].split(".")
 
 
 def parserulescope(string_expression):
