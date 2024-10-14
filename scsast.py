@@ -38,18 +38,13 @@ def __opgroup(expr, op):
 def __splittags(expr):
 	if isinstance(expr, tuple):
 		op, subxp = expr
-		for i in range(len(subxp)):
-			if isinstance(subxp[i], tuple):
-				__splittags(subxp[i])
-			else:
-				for j in range(len(subxp[i])):
-					subxp[i][j] = subxp[i][j].split(".")
-	else:
+		__splittags(subxp)
+	elif isinstance(expr, list):
 		for i in range(len(expr)):
-			if isinstance(expr[i], tuple):
-				__splittags(expr[i])
-			else:
+			if isinstance(expr[i], str):
 				expr[i] = expr[i].split(".")
+			else:
+				__splittags(expr[i])
 
 
 def parserulescope(string_expression):
