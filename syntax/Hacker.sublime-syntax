@@ -10,37 +10,29 @@ contexts:
       scope: comment.line.shebang.hacker
     - match: '(?=(?:^|\s)(?:#|\/\/))'
       scope: meta.comment.line.hacker
-      push:
-        - include: always
-        - match: '$'
-          pop: 1
-    - match: '\/\*'
-      push:
-        - include: always
-        - match: '\*\/'
-          pop: 1
-    - match: '"""'
-      push:
-        - include: always
-        - match: '"""'
-          pop: 1
-    - match: "'''"
-      push:
-        - include: always
-        - match: "'''"
-          pop: 1
+      embed: always
+      escape: '$'
     - match: '"'
       scope: punctuation.definition.string.begin.hacker
-      push: double_quoted_string
+      embed: double_quoted_string
+      escape: '"'
+      escape_captures:
+        0: punctuation.definition.string.end.hacker
     - match: "'"
       scope: punctuation.definition.string.begin.hacker
-      push: single_quoted_string
+      embed: single_quoted_string
+      escape: "'"
+      escape_captures:
+        0: punctuation.definition.string.end.hacker
     - match: '\('
-      push: brackets
+      embed: brackets
+      escape: '\)'
     - match: '\['
-      push: square_brackets
+      embed: square_brackets
+      escape: '\]'
     - match: '\{'
-      push: curly_brackets
+      embed: curly_brackets
+      escape: '\}'
     - match: '(\)|\]|\})'
       scope: invalid.illegal.stray-bracket-end
     - include: consts
@@ -57,6 +49,12 @@ contexts:
     - include: always
 
   consts:
+    # date:
+    - match: '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z'
+      scope: constant.other.date.hacker
+    # version:
+    - match: 'v[0-9]+(?:\.?[0-9]+)*'
+      scope: constant.other.version.hacker
     - include: numeric-consts
     - match: '(?<=\b)[Tt]rue(?=\b)'
       scope: constant.language.boolean.true.hacker
@@ -69,6 +67,7 @@ contexts:
     - match: '(?<![\w\d])[-]?[0-9]+[.]?[0-9]*(?=\b)'
       scope: constant.numeric.hacker
     - match: '(?<![\w\d])[-]?([0-9a-fA-F]{2})+(?=\b)'
+      scope: constant.numeric.integer.hexadecimal.hacker
 
   operators:
     - match: '(?<=.)(==?)(?=\b|\s)'
@@ -79,7 +78,7 @@ contexts:
     - match: '(?=\b[a-zA-Z0-9]+:\/\/)'
       push: url
     # emails:
-    - match: '(?<=\b)[\w\d.+_\-]+(@)[\w\d.+_\-]+(?=\b)'
+    - match: '(?<=\b)[\w\d.+_\-]+@[\w\d.+_\-]+(?=\b)'
       scope: markup.underline.email.hacker
     # jwt:
     - match: '(ey[a-zA-Z0-9]+)\.(ey[a-zA-Z0-9]+)\.([a-zA-Z0-9_-]+)'
@@ -88,6 +87,11 @@ contexts:
         1: constant.other.jwt.header.hacker variable.parameter.url.hacker
         2: constant.other.jwt.body.hacker variable.parameter.url.hacker
         3: constant.other.jwt.signature.hacker variable.parameter.url.hacker
+    # dollar-variables:
+    - match: '(\$)(\{?[a-zA-Z0-9_]+\}?)'
+      captures:
+        1: punctuation.definition.variable.hacker
+        2: variable.other.readwrite.hacker
 
   url:
     - meta_content_scope: markup.underline.link.hacker
@@ -97,8 +101,10 @@ contexts:
       scope: constant.character.escape.hacker escape.url.char.hacker
     - match: '[A-Za-z0-9-_\[\]]+(?==)'
       scope: variable.parameter.url.hacker
-    - match: '[:\/?&@\[\]]'
-      scope: keyword.operator.url.hacker
+    - match: '[:\/&@\[\]]'
+      scope: punctuation.separator.url.hacker
+    - match: '[?]'
+      scope: keyword.operator.querystring.hacker
     - include: consts
     - include: operators
 
