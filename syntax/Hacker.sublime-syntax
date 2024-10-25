@@ -19,11 +19,14 @@ contexts:
       scope: punctuation.definition.string.begin.hacker
       push: single_quoted_string
     - match: '\('
-      push: brackets
+      scope: punctuation.section.parens.begin
+      push: parens
     - match: '\['
-      push: square_brackets
+      scope: punctuation.section.brakets.begin
+      push: brackets
     - match: '\{'
-      push: curly_brackets
+      scope: punctuation.section.braces.begin
+      push: braces
     - match: '(\)|\]|\})'
       scope: invalid.illegal.stray-bracket-end
     - include: consts
@@ -79,25 +82,10 @@ contexts:
         2: constant.other.jwt.body.hacker variable.parameter.url.hacker
         3: constant.other.jwt.signature.hacker variable.parameter.url.hacker
     # dollar-variables:
-    - match: '(\$)(\{?[a-zA-Z0-9_]+\}?)'
+    - match: '(\$)([a-zA-Z0-9_]+|\{[a-zA-Z0-9_]+\})'
       captures:
         1: punctuation.definition.variable.hacker
         2: variable.other.readwrite.hacker
-
-  url:
-    - meta_content_scope: markup.underline.link.hacker
-    - match: '(?=[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?])'
-      pop: 1
-    - match: '%[0-9a-fA-F]{2}'
-      scope: constant.character.escape.hacker escape.url.char.hacker
-    - match: '[A-Za-z0-9-_\[\]]+(?==)'
-      scope: variable.parameter.url.hacker
-    - match: '[:\/&@\[\]]'
-      scope: punctuation.separator.url.hacker
-    - match: '[?]'
-      scope: keyword.operator.querystring.hacker
-    - include: consts
-    - include: operators
 
   string-escapes:
     - match: '\\x[0-9a-f]{2}'
@@ -121,21 +109,42 @@ contexts:
       pop: true
     - include: always
 
-  brackets:
+  parens:
+    - meta_scope: meta.parens
     - match: '\)'
+      scope: punctuation.section.parens.end
       pop: true
     - include: main
 
-  square_brackets:
+  brackets:
+    - meta_scope: meta.brackets
     - match: '\]'
+      scope: punctuation.section.brackets.end
       pop: true
     - include: main
     - match: '(?<=\b)(?![0-9])\w+(?=\b)'
       scope: entity.name.tag.yaml.hacker
 
-  curly_brackets:
+  braces:
+    - meta_scope: meta.braces
     - match: '\}'
+      scope: punctuation.section.braces.end
       pop: true
     - include: main
     - match: '(?<=\b)(?![0-9])\w+(?=\b)'
       scope: entity.name.tag.yaml.hacker
+
+  url:
+    - meta_content_scope: markup.underline.link.hacker
+    - match: '(?=[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?])'
+      pop: 1
+    - match: '%[0-9a-fA-F]{2}'
+      scope: constant.character.escape.hacker escape.url.char.hacker
+    - match: '[A-Za-z0-9-_\[\]]+(?==)'
+      scope: variable.parameter.url.hacker
+    - match: '[:\/&@\[\]]'
+      scope: punctuation.separator.url.hacker
+    - match: '[?]'
+      scope: keyword.operator.querystring.hacker
+    - include: consts
+    - include: operators
