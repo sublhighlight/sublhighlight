@@ -14,25 +14,16 @@ contexts:
       escape: '$'
     - match: '"'
       scope: punctuation.definition.string.begin.hacker
-      embed: double_quoted_string
-      escape: '"'
-      escape_captures:
-        0: punctuation.definition.string.end.hacker
+      push: double_quoted_string
     - match: "'"
       scope: punctuation.definition.string.begin.hacker
-      embed: single_quoted_string
-      escape: "'"
-      escape_captures:
-        0: punctuation.definition.string.end.hacker
+      push: single_quoted_string
     - match: '\('
-      embed: brackets
-      escape: '\)'
+      push: brackets
     - match: '\['
-      embed: square_brackets
-      escape: '\]'
+      push: square_brackets
     - match: '\{'
-      embed: curly_brackets
-      escape: '\}'
+      push: curly_brackets
     - match: '(\)|\]|\})'
       scope: invalid.illegal.stray-bracket-end
     - include: consts
@@ -95,7 +86,7 @@ contexts:
 
   url:
     - meta_content_scope: markup.underline.link.hacker
-    - match: '[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?]'
+    - match: '(?=[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?])'
       pop: 1
     - match: '%[0-9a-fA-F]{2}'
       scope: constant.character.escape.hacker escape.url.char.hacker
