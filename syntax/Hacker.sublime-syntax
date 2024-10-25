@@ -136,7 +136,7 @@ contexts:
 
   url:
     - meta_content_scope: markup.underline.link.hacker
-    - match: '(?=[^A-Za-z0-9-._~:\/#\[\]@!$&''()*+,;=%?])'
+    - match: '(?=[^A-Za-z0-9-._~:\/#\[\]@!$&()*+,;=%?])'
       pop: 1
     - match: '%[0-9a-fA-F]{2}'
       scope: constant.character.escape.hacker escape.url.char.hacker
