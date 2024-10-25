@@ -41,6 +41,8 @@ contexts:
     - match: '(?<=\b)(GET|POST|PUT|PATCH|DELETE|OPTIONS|TRACE)(?=\s)'
       scope: keyword.other.hacker
     - include: always
+    - match: '%[0-9a-fA-F]{2}'
+      scope: constant.character.escape.hacker escape.url.char.hacker
 
   consts:
     # date:
@@ -99,7 +101,7 @@ contexts:
     - match: '"'
       scope: punctuation.definition.string.end.hacker
       pop: true
-    - include: always
+    - include: main
 
   single_quoted_string:
     - meta_scope: string.quoted.single.hacker
@@ -107,7 +109,7 @@ contexts:
     - match: "'"
       scope: punctuation.definition.string.end.hacker
       pop: true
-    - include: always
+    - include: main
 
   parens:
     - meta_scope: meta.parens
