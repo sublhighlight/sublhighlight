@@ -582,6 +582,8 @@ if __name__ == "__main__":
 	parser.add_argument("-c", "--color-scheme", type=str, help="sublime-color-scheme to use", nargs="?", default="Default")
 	parser.add_argument("-d", "--debug", action="store_true", help="turn debugging on", default=False)
 	parser.add_argument("-S", "--show-scopes", action="store_true", help="output scopes tags", default=False)
+	parser.add_argument("-ls", "--list-syntaxes", action="store_true", help="list available syntaxes", default=False)
+	parser.add_argument("-lc", "--list-color-schemes", action="store_true", help="list available color schemes", default=False)
 	args = parser.parse_args()
 	global dbg
 	if args.debug:
@@ -592,12 +594,53 @@ if __name__ == "__main__":
 	this_dir_path = os.path.dirname(__file__) or "."
 	syntax_dir_path = os.path.join(this_dir_path, "syntax")
 	color_scheme_dir_path = os.path.join(this_dir_path, "color-scheme")
-	this_dir_list = os.listdir(syntax_dir_path)
+	syntax_dir_list = os.listdir(syntax_dir_path)
+	if args.list_syntaxes:
+		import json
+		print(
+			json.dumps(
+				{
+					"syntaxes": list(
+						map(
+							lambda x:os.path.splitext(x)[0],
+							filter(
+								lambda x:x.endswith(sublsynt_ext),
+								syntax_dir_list
+							)
+						)
+					)
+				},
+				indent=2
+			)
+		)
+	if args.list_color_schemes:
+		import json
+		print(
+			json.dumps(
+				{
+					"color-schemes": list(
+						filter(
+							lambda x:not x.startswith("."),
+							map(
+								lambda x:os.path.splitext(x)[0],
+								filter(
+									lambda x:x.endswith(sublcolscheme_ext),
+									os.listdir(color_scheme_dir_path)
+								)
+							)
+						)
+					)
+				},
+				indent=2
+			)
+		)
+	if args.list_syntaxes or args.list_color_schemes:
+		exit()
 	syntax_includes_paths = map(
 		lambda x:os.path.abspath(os.path.join(syntax_dir_path, x)),
 		filter(
 			lambda x:x.endswith(f".{sublsynt_ext}"),
-			this_dir_list
+			syntax_dir_list
 		)
 	)
 	syntaxes = loadsyntaxesmp(syntax_includes_paths)
