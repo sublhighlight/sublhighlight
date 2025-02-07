@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import onigurumacffi as oniguruma
 import regex as re
 import sys
 from io import StringIO
@@ -330,9 +331,6 @@ class SyntaxHighlighter:
 				self.push_context("prototype", included=True)
 
 	re_varsub = re.compile(r"{{([A-Za-z0-9_]+)}}")
-	re_small_h_patt = re.compile(r"(\[[^\[\]]*)\\h([^\[\]]*\])")
-	re_big_h_patt = re.compile(r"\[(?:([^\[\]]+)\\H([^\[\]]*)|([^\[\]]*)\\H([^\[\]]+))\]")
-	re_slash_x_patt = re.compile(r"\\x{([a-fA-F0-9]{2,8})}")
 
 	def compile_pattern(self, patt, rtctx):
 		# if dbg: dbg(f"compiling pattern: {patt}")
@@ -347,14 +345,8 @@ class SyntaxHighlighter:
 					patt = patt.replace(f"{{{{{varname}}}}}", var, 1)
 				else:
 					raise KeyError(f"variable: {varname} not found")
-		patt = self.re_small_h_patt.sub(r"\1a-fA-F0-9\2", patt)
-		patt = patt.replace("\\h", "[a-fA-F0-9]")
-		patt = self.re_big_h_patt.sub(r"[\1\2](?<![a-fA-F0-9])", patt)
-		patt = patt.replace(r"[\H]", "[^a-fA-F0-9]")
-		patt = patt.replace(r"\H", "[^a-fA-F0-9]")
-		patt = self.re_slash_x_patt.sub(r"\\u\1", patt)
 		try:
-			return re.compile(patt)
+			return oniguruma.compile(patt)
 		except Exception:
 			print(f"errors compiling pattern: {opatt} => {patt}")
 			raise
@@ -431,10 +423,15 @@ class SyntaxHighlighter:
 					embed_escape = actiondef["escape"]
 				except KeyError:
 					raise KeyError(f"embed_escape is required when specifying and embed. ctx: {rtctx}")
-				for gi in range(len(match.groups())):
-					#fix-me: syntax-blind replace, but at least it works in usual cases
-					if match.group(gi):
-						embed_escape = re.sub(f"(?<=\\b)\\\\{gi}(?=\\b)", match.group(gi), embed_escape)
+				try:
+					gi = 0
+					while True:
+						#fix-me: syntax-blind replace, but at least it works in usual cases
+						if match.group(gi):
+							embed_escape = re.sub(f"(?<=\\b)\\\\{gi}(?=\\b)", match.group(gi), embed_escape)
+						gi += 1
+				except IndexError:
+					pass
 				if isinstance(embed_escape, str):
 					embed_escape = self.compile_pattern(embed_escape, rtctx)
 					actiondef["escape"] = embed_escape
