@@ -24,7 +24,7 @@ def loadsyntaxesmp(paths):
 		return {k: v for k, v in p.map(threadloadsyntax, paths)}
 
 
-def parsesyntax(syntax:dict, syntaxes_by_fname:dict):
+def parsesyntax(syntax:dict, syntaxes_by_fname:dict, syntax_dir_path:str, postlazyloadsyntax = lambda x:x):
 	def _syntax_merge_vars(*s):
 		return {k: v for k, v in chain(*map(dict.items, map(lambda x:x.get("variables", None) or {}, s)))}
 	def _syntax_merge_contexts(*s):
@@ -41,27 +41,32 @@ def parsesyntax(syntax:dict, syntaxes_by_fname:dict):
 				else:
 					result[ctxname] = ctx[ctxname] + result[ctxname]
 		return result
-	parents = syntax.get("extends", None)
-	if parents:
-		if isinstance(parents, str):
-			parents = [parents]
-		parents = list(
+	parent_syntaxes_paths = syntax.get("extends", None)
+	if parent_syntaxes_paths:
+		if isinstance(parent_syntaxes_paths, str):
+			parent_syntaxes_paths = [parent_syntaxes_paths]
+		parent_syntaxes_paths = list(
 			map(
-				lambda x:os.path.splitext(os.path.basename(x))[0],
-				parents
+				lambda x:(x, os.path.abspath(os.path.join(syntax_dir_path, f"{x}.{file_ext}"))),
+				map(
+					lambda x:os.path.splitext(os.path.basename(x))[0],
+					parent_syntaxes_paths
+				)
 			)
 		)
-		not_found = list(filter(lambda x:x not in syntaxes_by_fname, parents))
-		if not_found:
-			raise KeyError(f"parsesyntax: {syntax['name']}, cannot find parent syntaxes: {not_found}")
-		parents = list(
-			map(
-				lambda x:syntaxes_by_fname[x],
-				parents
-			)
-		)
-		syntax["variables"] = _syntax_merge_vars(*parents, syntax)
-		syntax["contexts"] = _syntax_merge_contexts(*parents, syntax)
+		parent_syntaxes = []
+		for name, path in parent_syntaxes_paths:
+			if name not in syntaxes_by_fname:
+				syntaxes_by_fname[name] = parsesyntax(
+					loadsyntax(path),
+					syntaxes_by_fname,
+					syntax_dir_path,
+					postlazyloadsyntax=postlazyloadsyntax
+				)
+				postlazyloadsyntax(syntaxes_by_fname[name])
+			parent_syntaxes.append(syntaxes_by_fname[name])
+		syntax["variables"] = _syntax_merge_vars(*parent_syntaxes, syntax)
+		syntax["contexts"] = _syntax_merge_contexts(*parent_syntaxes, syntax)
 	return syntax
 
 	
