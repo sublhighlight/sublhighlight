@@ -4,6 +4,35 @@ from itertools import chain
 
 
 file_ext = "sublime-syntax"
+syntax_dir_path = os.path.join(
+	os.path.dirname(__file__) or ".",
+	"syntax"
+)
+all_syntaxes_basenames = list(
+	filter(
+		lambda x:x.endswith(file_ext),
+		os.listdir(syntax_dir_path)
+	)
+)
+all_syntaxes_names = list(
+	map(
+		lambda x: os.path.splitext(x)[0],
+		all_syntaxes_basenames
+	)
+)
+all_syntaxes_paths = list(
+	map(
+		lambda x: os.path.abspath(
+			os.path.join(
+				syntax_dir_path,
+				x
+			)
+		),
+		all_syntaxes_basenames
+	)
+)
+LOAD_SYNTAX_CACHE = {}
+__hl_parsed_key = "__hl_parsed"
 
 
 def ctx_findprop(ctx, key, default):
@@ -11,8 +40,12 @@ def ctx_findprop(ctx, key, default):
 
 
 def loadsyntax(path):
+	if path in LOAD_SYNTAX_CACHE:
+		return LOAD_SYNTAX_CACHE[path]
 	with open(path, "rb") as f:
-		return yaml.load(f, Loader=yaml.SafeLoader)
+		syntax = yaml.load(f, Loader=yaml.SafeLoader)
+		LOAD_SYNTAX_CACHE[path] = syntax
+		return syntax
 
 
 def loadsyntaxesmp(paths):
@@ -23,7 +56,9 @@ def loadsyntaxesmp(paths):
 		return {k: v for k, v in p.map(threadloadsyntax, paths)}
 
 
-def parsesyntax(syntax:dict, syntaxes_by_fname:dict, syntax_dir_path:str, postlazyloadsyntax = lambda x:x):
+def parsesyntax(syntax: dict, postlazyloadsyntax = lambda x: x):
+	if __hl_parsed_key in syntax:
+		return syntax
 	def _syntax_merge_vars(*s):
 		return {k: v for k, v in chain(*map(dict.items, map(lambda x:x.get("variables", None) or {}, s)))}
 	def _syntax_merge_contexts(*s):
@@ -40,32 +75,30 @@ def parsesyntax(syntax:dict, syntaxes_by_fname:dict, syntax_dir_path:str, postla
 				else:
 					result[ctxname] = ctx[ctxname] + result[ctxname]
 		return result
-	parent_syntaxes_paths = syntax.get("extends", None)
-	if parent_syntaxes_paths:
-		if isinstance(parent_syntaxes_paths, str):
-			parent_syntaxes_paths = [parent_syntaxes_paths]
-		parent_syntaxes_paths = list(
+	parent_syntaxes = syntax.get("extends", None)
+	if parent_syntaxes:
+		if isinstance(parent_syntaxes, str):
+			parent_syntaxes = [parent_syntaxes]
+		parent_syntaxes = list(
 			map(
-				lambda x:(x, os.path.abspath(os.path.join(syntax_dir_path, f"{x}.{file_ext}"))),
-				map(
-					lambda x:os.path.splitext(os.path.basename(x))[0],
-					parent_syntaxes_paths
-				)
+				lambda x: parsesyntax(
+					loadsyntax(
+						os.path.abspath(
+							os.path.join(
+								syntax_dir_path,
+								x
+							)
+						)
+					),
+					postlazyloadsyntax=postlazyloadsyntax
+				),
+				parent_syntaxes
 			)
 		)
-		parent_syntaxes = []
-		for name, path in parent_syntaxes_paths:
-			if name not in syntaxes_by_fname:
-				syntaxes_by_fname[name] = parsesyntax(
-					loadsyntax(path),
-					syntaxes_by_fname,
-					syntax_dir_path,
-					postlazyloadsyntax=postlazyloadsyntax
-				)
-				postlazyloadsyntax(syntaxes_by_fname[name])
-			parent_syntaxes.append(syntaxes_by_fname[name])
 		syntax["variables"] = _syntax_merge_vars(*parent_syntaxes, syntax)
 		syntax["contexts"] = _syntax_merge_contexts(*parent_syntaxes, syntax)
+	syntax[__hl_parsed_key] = True
+	postlazyloadsyntax(syntax)
 	return syntax
 
 	

@@ -1,3 +1,4 @@
+import os
 import re
 import yaml
 import tinycss2
@@ -7,6 +8,33 @@ from scsast import parserulescope
 
 
 file_ext = "sublime-color-scheme"
+color_scheme_dir_path = os.path.join(
+	os.path.dirname(__file__) or ".",
+	"color-scheme"
+)
+all_color_schemes_basenames = list(
+	filter(
+		lambda x:x.endswith(file_ext),
+		os.listdir(color_scheme_dir_path)
+	)
+)
+all_color_schemes_names = list(
+	map(
+		lambda x: os.path.splitext(x)[0],
+		all_color_schemes_basenames
+	)
+)
+all_color_schemes_paths = list(
+	map(
+		lambda x: os.path.abspath(
+			os.path.join(
+				color_scheme_dir_path,
+				x
+			)
+		),
+		all_color_schemes_basenames
+	)
+)
 
 
 # yaml load error workaround, see: https://github.com/yaml/pyyaml/issues/89

@@ -15,7 +15,9 @@ from scsast import scorexp
 from sublcolorscheme import (
 	loadcolorscheme,
 	parsecolorscheme,
-	file_ext as sublcolscheme_ext
+	file_ext as sublcolscheme_ext,
+	color_scheme_dir_path,
+	all_color_schemes_names,
 )
 from sublcolorsys import (
 	rgba_to_ansi256,
@@ -29,7 +31,10 @@ from sublsyntax import (
 	loadsyntaxesmp,
 	parsesyntax,
 	ctx_findprop,
-	file_ext as sublsynt_ext
+	file_ext as sublsynt_ext,
+	syntax_dir_path,
+	all_syntaxes_names,
+	all_syntaxes_paths,
 )
 
 
@@ -102,71 +107,39 @@ class SyntaxHighlighter:
 
 	def __init__(
 		self,
-		syntax_dir_path:str,
 		syntax:dict,
-		syntaxes:dict,
 		color_scheme:dict,
 		io,
 		show_scopes:bool=False
 	):
 		self.contextstack = []
-		self.syntax_dir_path = syntax_dir_path
 		self.main_syntax = syntax
-		synbyscope = {}
-		for v in syntaxes.values():
-			synbyscope[v["scope"]] = v
-		self.syntaxes_by_scope = synbyscope
-		self.syntaxes_by_fname = syntaxes
+		self.syntaxes_by_scope = {}
 		self.color_scheme = color_scheme
 		self.io = io
 		self.scopestack = []
 		self.scopepops = []
 		self.show_scopes = show_scopes
+		self.cache_scope_to_syntax_map(syntax)
 		
-	def load_syntax_lazy(self, name : str):
-		return self.load_syntax_lazy_with_path(
-			name,
-			os.path.abspath(
-				os.path.join(
-					self.syntax_dir_path,
-					f"{name}.{sublsynt_ext}"
-				)
-			)
+	def load_syntax_lazy(self, path : str):
+		return parsesyntax(
+			loadsyntax(path),
+			self.cache_scope_to_syntax_map
 		)
 
-	def load_syntax_lazy_with_path(self, name : str, path : str):
-		syntax = loadsyntax(path)
-		if syntax:
-			self.syntaxes_by_fname[name] = parsesyntax(
-				syntax,
-				self.syntaxes_by_fname,
-				self.syntax_dir_path,
-				self.cache_map_scope_to_syntax
-			)
-			self.syntaxes_by_scope[syntax["scope"]] = syntax
-		return syntax
-
-	def cache_map_scope_to_syntax(self, syntax):
+	def cache_scope_to_syntax_map(self, syntax):
 		self.syntaxes_by_scope[syntax["scope"]] = syntax
 
 	def load_syntax_lazy_with_scope(self, syntax_scope : str):
-		syntax_dir_list = os.listdir(self.syntax_dir_path)
-		syntaxes_paths = map(
-			lambda x:os.path.abspath(os.path.join(self.syntax_dir_path, x)),
-			filter(
-				lambda x:x.endswith(f".{sublsynt_ext}"),
-				syntax_dir_list
-			)
-		)
+		if extscope in self.syntaxes_by_scope:
+			return self.syntaxes_by_scope[extscope]
 		scope_regex = re.compile(fr"^scope:[ ]*{syntax_scope}", re.IGNORECASE)
-		for path in syntaxes_paths:
+		for path in all_syntaxes_paths:
 			with open(path, "r", encoding="latin1") as f:
 				for line in f:
 					if scope_regex.match(line):
-						return self.load_syntax_lazy_with_path(
-							os.path.splitext(os.path.basename(path))[0],
-							path
-						)
+						return self.load_syntax_lazy(path)
 
 	token_color_cache = {}
 
@@ -290,18 +263,17 @@ class SyntaxHighlighter:
 				extscope, key = pushref.groups()
 				if not key:
 					key = "main"
-				syntax = self.syntaxes_by_scope.get(extscope, None)
+				syntax = self.load_syntax_lazy_with_scope(extscope)
 				if not syntax:
-					syntax = self.load_syntax_lazy_with_scope(extscope)
-					if not syntax:
-						raise KeyError(f"push_context: external syntax (by scope): {extscope} not found, are you missing a syntax file?")
+					raise KeyError(f"push_context: external syntax (by scope): {extscope} not found, are you missing a syntax file?")
 			elif key.startswith("packages/"): #hacky
-				fname = os.path.splitext(os.path.basename(key))[0]
-				syntax = self.syntaxes_by_fname.get(fname, None)
+				mapped_path = os.path.join(
+					syntax_dir_path,
+					os.path.basename(key)
+				)
+				syntax = self.load_syntax_lazy(mapped_path)
 				if not syntax:
-					syntax = self.load_syntax_lazy(fname)
-					if not syntax:
-						raise KeyError(f"push_context: external syntax: {fname} not found, are you missing a syntax file?")
+					raise KeyError(f"push_context: external syntax: '{mapped_path}' not found, are you missing a syntax file?")
 				key = "main"
 		ctx = self.get_context(syntax, key)
 		if ctx is not None:
@@ -626,12 +598,13 @@ class SyntaxHighlighter:
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-s", "--syntax", type=str, help="sublime-syntax to use", nargs="?", default="Default")
+	parser.add_argument("-s", "--syntax", type=str, help="sublime-syntax to use", nargs="?", default=None)
 	parser.add_argument("-c", "--color-scheme", type=str, help="sublime-color-scheme to use", nargs="?", default="Default")
 	parser.add_argument("-d", "--debug", action="store_true", help="turn debugging on", default=False)
 	parser.add_argument("-S", "--show-scopes", action="store_true", help="output scopes tags", default=False)
 	parser.add_argument("-ls", "--list-syntaxes", action="store_true", help="list available syntaxes", default=False)
 	parser.add_argument("-lc", "--list-color-schemes", action="store_true", help="list available color schemes", default=False)
+	parser.add_argument("input_file", type=str, help="input file", nargs="?", default=None)
 	args = parser.parse_args()
 	global dbg
 	if args.debug:
@@ -639,24 +612,12 @@ if __name__ == "__main__":
 		if dbg: dbg("="*20)
 	else:
 		dbg = None
-	this_dir_path = os.path.dirname(__file__) or "."
-	syntax_dir_path = os.path.join(this_dir_path, "syntax")
-	color_scheme_dir_path = os.path.join(this_dir_path, "color-scheme")
 	if args.list_syntaxes:
-		syntax_dir_list = os.listdir(syntax_dir_path)
 		import json
 		print(
 			json.dumps(
 				{
-					"syntaxes": list(
-						map(
-							lambda x:os.path.splitext(x)[0],
-							filter(
-								lambda x:x.endswith(sublsynt_ext),
-								syntax_dir_list
-							)
-						)
-					)
+					"syntaxes": all_syntaxes_names
 				},
 				indent=2
 			)
@@ -666,45 +627,67 @@ if __name__ == "__main__":
 		print(
 			json.dumps(
 				{
-					"color-schemes": list(
-						filter(
-							lambda x:not x.startswith("."),
-							map(
-								lambda x:os.path.splitext(x)[0],
-								filter(
-									lambda x:x.endswith(sublcolscheme_ext),
-									os.listdir(color_scheme_dir_path)
-								)
-							)
-						)
-					)
+					"color-schemes": all_color_schemes_names
 				},
 				indent=2
 			)
 		)
 	if args.list_syntaxes or args.list_color_schemes:
 		exit()
-	syntaxes = {}
-	main_syntax_path = os.path.abspath(os.path.join(syntax_dir_path, f"{args.syntax}.{sublsynt_ext}"))
-	main_syntax_name = os.path.splitext(os.path.basename(main_syntax_path))[0]
-	syntaxes[main_syntax_name] = parsesyntax(
-		loadsyntax(main_syntax_path),
-		syntaxes,
-		syntax_dir_path
+	first_stdin_line = None
+	input_stream = open(args.input_file, "r") if args.input_file else sys.stdin
+	if args.syntax is None:
+		all_syntaxes = loadsyntaxesmp(all_syntaxes_paths)
+		if args.input_file:
+			file_ext = os.path.splitext(args.input_file)[1].lstrip(".")
+			for syntax_name, syntax in all_syntaxes.items():
+				file_extensions = syntax.get("file_extensions", [])
+				if file_ext in file_extensions:
+					args.syntax = syntax_name
+					break
+		if args.syntax is None:
+			for line in input_stream:
+				first_stdin_line = line
+				for syntax_name, syntax in all_syntaxes.items():
+					first_line_match = syntax.get("first_line_match", None)
+					if first_line_match:
+						if re.match(first_line_match, line):
+							args.syntax = syntax_name
+							break
+				break
+		del all_syntaxes
+	if args.syntax is None:
+		args.syntax = "Default"
+	main_syntax_path = os.path.abspath(
+		os.path.join(
+			syntax_dir_path,
+			f"{args.syntax}.{sublsynt_ext}"
+		)
 	)
-	color_scheme_path = os.path.abspath(os.path.join(color_scheme_dir_path, f"{args.color_scheme}.{sublcolscheme_ext}"))
-	color_scheme = parsecolorscheme(loadcolorscheme(color_scheme_path))
+	main_syntax = parsesyntax(
+		loadsyntax(main_syntax_path)
+	)
+	color_scheme_path = os.path.abspath(
+		os.path.join(
+			color_scheme_dir_path,
+			f"{args.color_scheme}.{sublcolscheme_ext}"
+		)
+	)
+	color_scheme = parsecolorscheme(
+		loadcolorscheme(color_scheme_path)
+	)
 	output = sys.stdout if not args.debug else StringIO()
 	shl = SyntaxHighlighter(
-		syntax_dir_path,
-		syntaxes[main_syntax_name],
-		syntaxes,
+		main_syntax,
 		color_scheme,
 		output,
 		show_scopes=args.show_scopes
 	)
 	shl.begin()
-	for line in sys.stdin:
+	if first_stdin_line:
+		shl.process(first_stdin_line)
+		output.flush()
+	for line in input_stream:
 		shl.process(line)
 		output.flush()
 	shl.end()
