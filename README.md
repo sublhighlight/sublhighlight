@@ -10,7 +10,7 @@ syntax-highlighting.
 * `cat helloworld.c | python3 hl.py -s C -c Celeste | less -r`
 * `tail -f log.txt | python3 hl.py -s CustomLog -c Monokai`
 * `hl data.yaml` (recognise syntax from extension) (slow. needs to pre-load all syntax definitions to access file extension list)
-* `hl blob` (recognise syntax from first line) (slow. needs to pre-load all syntax definitions to access file extension list)
+* `hl blob` (recognise syntax from first line) (slow. needs to pre-load all syntax definitions to access first line regexp)
 
 ## Installation:
 
