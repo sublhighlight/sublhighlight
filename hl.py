@@ -137,7 +137,6 @@ class SyntaxHighlighter:
 	def load_syntax_lazy_with_path(self, name : str, path : str):
 		syntax = loadsyntax(path)
 		if syntax:
-			self.syntaxes_by_fname[name] = syntax
 			self.syntaxes_by_fname[name] = parsesyntax(
 				syntax,
 				self.syntaxes_by_fname,
@@ -298,7 +297,7 @@ class SyntaxHighlighter:
 						raise KeyError(f"push_context: external syntax (by scope): {extscope} not found, are you missing a syntax file?")
 			elif key.startswith("packages/"): #hacky
 				fname = os.path.splitext(os.path.basename(key))[0]
-				syntax = self.syntaxes_by_fname[fname]
+				syntax = self.syntaxes_by_fname.get(fname, None)
 				if not syntax:
 					syntax = self.load_syntax_lazy(fname)
 					if not syntax:
@@ -688,10 +687,8 @@ if __name__ == "__main__":
 	syntaxes = {}
 	main_syntax_path = os.path.abspath(os.path.join(syntax_dir_path, f"{args.syntax}.{sublsynt_ext}"))
 	main_syntax_name = os.path.splitext(os.path.basename(main_syntax_path))[0]
-	if main_syntax_name not in syntaxes:
-		syntaxes[main_syntax_name] = loadsyntax(main_syntax_path)
 	syntaxes[main_syntax_name] = parsesyntax(
-		syntaxes[main_syntax_name],
+		loadsyntax(main_syntax_path),
 		syntaxes,
 		syntax_dir_path
 	)
