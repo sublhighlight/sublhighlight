@@ -12,8 +12,7 @@ def ctx_findprop(ctx, key, default):
 
 def loadsyntax(path):
 	with open(path, "rb") as f:
-		content = f.read()
-	return yaml.load(content, Loader=yaml.SafeLoader)
+		return yaml.load(f, Loader=yaml.SafeLoader)
 
 
 def loadsyntaxesmp(paths):
