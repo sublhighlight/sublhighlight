@@ -35,6 +35,7 @@ from sublsyntax import (
 	syntax_dir_path,
 	all_syntaxes_names,
 	all_syntaxes_paths,
+	loadsyntax_until,
 )
 
 
@@ -132,8 +133,8 @@ class SyntaxHighlighter:
 		self.syntaxes_by_scope[syntax["scope"]] = syntax
 
 	def load_syntax_lazy_with_scope(self, syntax_scope : str):
-		if extscope in self.syntaxes_by_scope:
-			return self.syntaxes_by_scope[extscope]
+		if syntax_scope in self.syntaxes_by_scope:
+			return self.syntaxes_by_scope[syntax_scope]
 		scope_regex = re.compile(fr"^scope:[ ]*{syntax_scope}", re.IGNORECASE)
 		for path in all_syntaxes_paths:
 			with open(path, "r", encoding="latin1") as f:
@@ -423,7 +424,9 @@ class SyntaxHighlighter:
 	def action_match(self, rtctx, text:str, pos:int, actiondef:dict):
 		patt = actiondef["match"]
 		if isinstance(patt, str):
+			pattern = patt
 			patt = self.compile_pattern(patt, rtctx)
+			patt.pattern = patt
 			actiondef["match"] = patt
 		match = patt.match(text, pos)
 		if match:
@@ -472,7 +475,7 @@ class SyntaxHighlighter:
 			else:
 				embed = None
 			metascope = None
-			if dbg: dbg(f"MATCH rtctx: {rtctx.name} pos: {pos} pattern: {patt.pattern} span: {match.span()} maingroup: {match.group()} groups: {match.groups()} actiondef: {actiondef}")
+			if dbg: dbg(f"MATCH rtctx: {rtctx.name} pos: {pos} pattern: {patt.pattern} span: {match.span()} maingroup: {match.group()} groups: {[match.group(n) for n in range(patt.number_of_captures())]} actiondef: {actiondef}")
 			mbegin, pos = match.span()
 			if push:
 				pushctx = self.get_context(rtctx.syntax, push)
@@ -637,23 +640,26 @@ if __name__ == "__main__":
 	first_stdin_line = None
 	input_stream = open(args.input_file, "r") if args.input_file else sys.stdin
 	if args.syntax is None:
-		all_syntaxes = loadsyntaxesmp(all_syntaxes_paths)
+		fastloadpatts = (re.compile("^file_extensions:"), re.compile("^first_line_match"))
+		all_syntaxes = loadsyntaxesmp(all_syntaxes_paths, lambda path:loadsyntax_until(path, fastloadpatts, cache=False))
 		if args.input_file:
 			file_ext = os.path.splitext(args.input_file)[1].lstrip(".")
 			for syntax_name, syntax in all_syntaxes.items():
-				file_extensions = syntax.get("file_extensions", [])
-				if file_ext in file_extensions:
-					args.syntax = syntax_name
-					break
+				if syntax:
+					file_extensions = syntax.get("file_extensions", [])
+					if file_ext in file_extensions:
+						args.syntax = syntax_name
+						break
 		if args.syntax is None:
 			for line in input_stream:
 				first_stdin_line = line
 				for syntax_name, syntax in all_syntaxes.items():
-					first_line_match = syntax.get("first_line_match", None)
-					if first_line_match:
-						if re.match(first_line_match, line):
-							args.syntax = syntax_name
-							break
+					if syntax:
+						first_line_match = syntax.get("first_line_match", None)
+						if first_line_match:
+							if re.match(first_line_match, line):
+								args.syntax = syntax_name
+								break
 				break
 		del all_syntaxes
 	if args.syntax is None:

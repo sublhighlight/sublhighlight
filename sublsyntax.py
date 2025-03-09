@@ -39,19 +39,40 @@ def ctx_findprop(ctx, key, default):
 	return (list(filter(lambda x:key in x, ctx)) or [{key:default}])[0].get(key, default)
 
 
-def loadsyntax(path):
-	if path in LOAD_SYNTAX_CACHE:
+def loadsyntax(path, cache=True):
+	if cache and path in LOAD_SYNTAX_CACHE:
 		return LOAD_SYNTAX_CACHE[path]
 	with open(path, "rb") as f:
 		syntax = yaml.load(f, Loader=yaml.SafeLoader)
-		LOAD_SYNTAX_CACHE[path] = syntax
+		if cache:
+			LOAD_SYNTAX_CACHE[path] = syntax
 		return syntax
 
 
-def loadsyntaxesmp(paths):
+def loadsyntax_until(path, marker_regexes, cache=True):
+	if cache and path in LOAD_SYNTAX_CACHE:
+		return LOAD_SYNTAX_CACHE[path]
+	with open(path, "r") as f:
+		loaded_lines = []
+		s = 0
+		nmarkers = len(marker_regexes)
+		for line in f:
+			if s < nmarkers:
+				if marker_regexes[s].match(line):
+					s += 1
+			elif line.strip().endswith(":"):
+				syntax = yaml.load("".join(loaded_lines), Loader=yaml.SafeLoader)
+				if cache:
+					LOAD_SYNTAX_CACHE[path] = syntax
+				return syntax
+			loaded_lines.append(line)
+	return None
+
+
+def loadsyntaxesmp(paths, syntaxloader=loadsyntax):
 	from multiprocessing.pool import ThreadPool as MPPool
 	def threadloadsyntax(path):
-		return os.path.splitext(os.path.basename(path))[0], loadsyntax(path)
+		return os.path.splitext(os.path.basename(path))[0], syntaxloader(path)
 	with MPPool() as p:
 		return {k: v for k, v in p.map(threadloadsyntax, paths)}
 
@@ -86,7 +107,7 @@ def parsesyntax(syntax: dict, postlazyloadsyntax = lambda x: x):
 						os.path.abspath(
 							os.path.join(
 								syntax_dir_path,
-								x
+								os.path.basename(x)
 							)
 						)
 					),
